@@ -9,6 +9,7 @@
 *.ttf
 *.zip
 *.sql
+*.DS_Store
 
 ### R ###
 # History files
