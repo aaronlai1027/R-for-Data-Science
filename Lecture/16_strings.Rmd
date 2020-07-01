@@ -1,0 +1,348 @@
+---
+title: "Strings and regular expressions"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, error = TRUE)
+```
+
+
+```{r}
+library(stringr)
+```
+
+
+```{r}
+a <- "This sentence is a string. It is long."
+b <- c(a, "Here there was another string.")
+```
+
+### Useful string functions from stringr
+
+#### `str_length`
+Returns the length of a string (in characters).
+
+```{r}
+str_length(b)
+```
+
+```{r}
+## Using base R
+nchar(b)
+```
+
+
+#### `str_sub`
+Extract substrings from a character vector.
+
+Usage:
+```{r}
+## str_sub(string, start = 1L, end = -1L)
+```
+
+
+Example:
+```{r}
+str_sub(a, 6, 13)
+```
+
+The corresponding Base R function is
+```{r}
+substr(a, 6, 13)
+```
+
+#### Exercise:
+Using negative indexes, extract "long" from `a`.
+
+
+
+#### Exercise:
+Using one call to `str_sub`, extract both "sentence"
+and "long" from `a`.
+
+
+
+
+#### Replacement form
+
+We first assign it to another variable, as it will
+be modified.
+
+```{r}
+tmp <- a
+```
+
+```{r}
+str_sub(tmp, 15, 32) <- "will be"
+tmp
+```
+
+
+
+### `str_locate` 
+Locate the position of the first occurence of a pattern
+in a string.
+
+Usage:
+```{r}
+## str_locate(string, pattern)
+```
+
+```{r}
+str_locate(b, "another")
+```
+
+
+`pattern` is a regular expression.
+
+For example, the following will match the first character
+as . is has special meaning in the context of regular
+expressions (it means match any character).
+```{r}
+str_locate(b, ".")
+```
+
+To avoid interpretation as a special character, use `fixed`.
+```{r}
+str_locate(b, fixed("."))
+```
+
+Alternatively, you can do:
+```{r}
+str_locate(b, "\\.")
+```
+
+
+
+```{r}
+## str_locate_all
+str_locate(b, "is")
+## To locate *all* instances
+str_locate_all(b, "is")
+## Is it case sensitive?
+str_locate(b, "Is")
+## Yes
+```
+
+
+```{r}
+## Make it insensitive
+str_locate(b, fixed("iS", ignore_case = TRUE))
+```
+
+### Exercise:
+`str_count` can be used to find out how many times a pattern
+is matched. For example:
+```{r}
+str_count(a, "is")
+```
+
+Find an alternative strategy, using str_sub and str_locate_all, to
+count how many times "is" appears in `a`.
+
+
+
+
+### `str_split`
+Split up a string into a variable number of pieces.
+
+```{r}
+## str_split(string, pattern, n = Inf)
+```
+
+
+```{r}
+str_split(b, " is ")
+```
+
+### `str_replace`
+Replace first occurrence of a matched pattern in a string.
+
+Usage:
+```{r}
+## str_replace(string, pattern, replacement)
+```
+
+
+```{r}
+## Value: character vector.
+str_replace(b, " is ", " was ")
+```
+
+```{r}
+## str_replace_all
+str_replace_all(b, " is ", " was ")
+```
+
+
+
+
+## Regular expressions
+
+Search R help for "regular expression"
+
+```{r}
+str_view_all(b, "is")
+```
+
+
+
+```{r}
+str_view_all(b, "is|was")
+```
+
+```{r}
+str_view_all(b, " (is|was) ")
+```
+
+
+```{r}
+str_replace_all(b, " (is|was) ", " will be ")
+```
+
+
+```{r}
+str_view_all(b, "\\b(is|was)\\b") # match empty string
+```
+
+
+
+```{r}
+str_replace_all(b, "\\b(is|was)\\b", "will be")
+```
+
+```{r}
+C <- paste0("Info with -- that can change")
+```
+
+```{r}
+str_split(C, "-.*-")
+str_split(C, "-.+-")
+str_split(C, "-.?-")
+```
+
+
+```{r}
+str_view_all(C, "-.*-")
+str_view_all(C, "-.+-")
+str_view_all(C, "-.?-")
+```
+
+
+#### Exercise:
+How you should modify the regular expression if the
+dashes are replaced by parentheses?
+
+```{r}
+D <- paste0("Info with ( separator ) that can change")
+```
+
+
+
+```{r}
+d <- c("423-84-2836", "324-2342-345",
+       "243-d5-1923", "423-364-3765")
+str_view_all(d, "-.{2}-")
+str_view_all(d, "-[0123456789]{2}-")
+str_view_all(d, "-[0-9]{2}-")
+str_view_all(d, "-[[:digit:]]{2}-")
+str_view_all(d, "-([0-9]{2}|[0-9]{4})-")
+str_view_all(d, "-[0-9]{2,4}-")
+```
+
+```{r}
+str_subset(d, "-.{2}-")
+```
+
+
+```{r}
+str_detect(d, "-.{2}-")
+```
+
+Note: str_detect can be useful in a filter condition.
+
+#### Exercise:
+Get a subset from `mpg` where model contains the words
+"pickup" and "2wd" or "4wd".
+
+
+
+
+#### Exercise
+Interpret what the following regular expression matches.
+```{r}
+# "^(1[0-2]|0[1-9])(\\.|/)(3[0-1]|[1-2][0-9]|0[1-9])(\\.|/)([0-9]{2,4})$"
+```
+
+
+
+
+
+```{r}
+C <- paste0("Info with -sepasgfhsgdhgfdhrator- that can change")
+```
+
+```{r}
+str_replace(C, "^.*-(.*)-.*$", "\\1")
+
+str_replace(d, "^.*-(.+)-(.*)$", "\\2-hello-\\1")
+```
+
+
+```{r}
+strings <- c("Home: 219 733.8965.  Work: 229-293-8753 ",
+             "Home: 119 733.8965.  Work: 229-293-8753 ",
+             "banana pear apple",
+             "595 794 7569 / 387 287 6718")
+phone <- "([2-9][0-9]{2})[- .]([0-9]{3})[- .]([0-9]{4})"
+
+str_extract(strings, phone)
+str_extract_all(strings, phone)
+
+str_match(strings, phone)
+str_match_all(strings, phone)
+```
+
+
+```{r}
+email <- readRDS('data/email.rds')
+str(email)
+email[1]
+
+cat(email[1])
+
+breaks <- str_locate(email[1], "\n\n")
+str(breaks)
+
+header <- str_sub(email[1], end = breaks[,"start"])
+body <- str_sub(email[1], start = breaks[,"end"])
+
+cat(header)
+header
+
+str_split(header, "\n")
+
+breaks <- str_locate(email[1],'\nDate: ')
+email1 <- str_sub(email[1], start=breaks[,'end']+1)
+breaks1 <- str_locate(email1,'\nMessage-ID:')
+cat(str_sub(email1,end=breaks1[,'start']))
+
+str_match(header, "Date: ([a-zA-Z]{3}), ([0-9]{2}) ([a-zA-Z]{3}) ([0-9]{4}) ([0-9]{2}:[0-9]{2}:[0-9]{2} -?[0-9]{4})")
+
+str_match(header, "From: \"?([a-zA-Z]*, [a-zA-Z]*)\"? <([^>]*)")
+```
+
+```{r}
+str_detect(words, "^r.*e$")
+str_subset(words, "^r.*e$")
+```
+
+IRF1t <- 1
+RIGIt <- 2
+targets <- list(c(IRF1t, "IRF1t"),
+                c(RIGIt, "RIGIt")
+                )
+for (target in targets) {
+print(target)
+}

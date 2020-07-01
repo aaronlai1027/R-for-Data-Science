@@ -1,0 +1,135 @@
+---
+title: "HW4"
+author: "Aaron"
+date: "2/20/2018"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(plyr) 
+library(dplyr) 
+library(tidyr) 
+library(lubridate) 
+library(ggmap) 
+library(ggplot2) 
+library(grid) 
+library(reshape2)
+
+violence <- readRDS('./crime_data.rds')
+```
+
+###Excercise1
+```{r}
+str(violence)
+vio_sub <- subset(violence, Primary.Type == "ASSAULT" | Primary.Type == "HOMICIDE")
+
+location <- unlist(geocode('4135 S Morgan St, Chicago, IL 60609'))+c(0,.02)
+map <- get_map(location = location, zoom = 11, maptype = "terrain",  color = "bw", source = "google")
+
+
+contours <- stat_density_2d(
+                data = vio_sub,
+                aes(
+                  x = Longitude, 
+                  y = Latitude, 
+                  fill = ..level.., 
+                  alpha = ..level..
+                ), 
+                size = 1, 
+                geom = "polygon")
+ggmap(map) + contours +
+theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"), 
+  axis.ticks = element_blank(), 
+  axis.text = element_blank(),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  panel.spacing = unit(0, "lines"),
+  legend.title = element_text(size = 7),
+  legend.key.size = unit(0.3, "cm"),
+  legend.text = element_text(size = 6)
+)+
+labs(
+  x = "Longitude",
+  y = "Latitude",
+  shape = "Transmission"
+)+
+ggtitle("Density Plot of Violent Crimes in the City of Chicago")+
+scale_fill_continuous(name = "Violent\nCrime\nDensity" )+
+scale_alpha_continuous(guide = "none")+
+facet_grid( ~ Primary.Type )
+
+
+```
+
+
+###Excercise2
+```{r}
+h <- data.frame(hour = hour(as.POSIXct(violence$Date,format = "%m/%d/%Y %I:%M:%S %p")),
+                type = violence$Primary.Type)
+
+ggplot(h) + 
+aes(hour, fill = type) + 
+geom_bar() + 
+theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"), 
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.title = element_text(size = 8),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6)
+)+
+labs(
+  x = "Hour",
+  y = "Number of Crimes",
+  shape = "Transmission"
+)+
+scale_fill_manual(
+  values = c('#FF69B4','#000080','#FF8C00'),
+  name = "Crime Types"
+)+
+ggtitle("Distribution of Violent Crimes By Hour")
+```
+
+###Excercise3
+```{r}
+viodate <- date(as.POSIXct(violence$Date,format = "%m/%d/%Y %I:%M:%S %p"))
+ass <<- subset(count(violence, Primary.Type, date = viodate), Primary.Type == "ASSAULT")
+hom <<- subset(count(violence, Primary.Type, date = viodate), Primary.Type == "HOMICIDE")
+num <- inner_join(ass, hom, by = "date")
+
+d <- data_frame(date = num$date,
+                Number.of.Assault = num$n.x,
+                Number.of.Homicide = num$n.y)
+
+dmelt <- melt(d, id.vars = "date", variable.name = "type")
+
+ggplot(dmelt)+
+aes(date, value, colour = type)+
+geom_line()+
+theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.title = element_text(size = 8),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6)
+)+
+labs(
+  x = "Date",
+  y = "Number of Crimes Per Day",
+  shape = "Transmission"
+)+
+scale_colour_manual(
+  values = c("darkblue", "orange"),
+  name = "Crime Types",
+  labels = c("Assault", "Homicide")
+)+
+ggtitle("Time Series Plot of Violent Crimes from 2012 to 2017")
+```
+
+

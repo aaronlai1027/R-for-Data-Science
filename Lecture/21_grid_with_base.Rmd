@@ -1,0 +1,117 @@
+---
+title: "Mixing grid with base graphics"
+author: "Roberto Bertolusso"
+date: "November 21, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## grid with base
+
+```{r}
+library(grid)
+library(gridBase)
+
+grid.newpage()
+plot.new()   ## Critical! Needed so both engines are active (I think...)
+
+opar <- par(no.readonly=TRUE)
+
+pushViewport(viewport(x=0.25, y=0.75, width = 0.5, height = 0.5))
+grid.rect(gp=gpar(col="grey", lty="dashed"))
+par(fig=gridFIG())
+par(new=TRUE)  ## Needed
+plot(1:10)
+grid.text("Title added with grid", y=0.8)
+par(opar)
+popViewport()
+## upViewport(0) 
+
+pushViewport(viewport(x=0.75, y=0.75, width = 0.5, height = 0.5))
+grid.rect(gp=gpar(col="grey", lwd=5))
+par(plt=gridPLT())
+par(new=TRUE)
+plot(1:10)
+par(opar)
+popViewport()
+
+pushViewport(viewport(x=0.5, y=0.25, width = 1, height = 0.5))
+grid.rect(gp=gpar(col="grey", lty="dashed"))
+par(omi=gridOMI())
+par(mfrow=c(2, 2), mfg=c(1, 1), mar=c(3, 3, 1, 0))
+for (i in 1:4) {
+  plot(i)
+}
+par(opar)
+popViewport()
+```
+
+
+```{r}
+grid.newpage()
+plot.new()   ## Needed so both engines are active (I think...)
+
+opar <- par(no.readonly=TRUE)
+
+pushViewport(viewport(x=0.25, y=0.75, width = 0.5, height = 0.5))
+grid.rect(gp=gpar(col="grey", lty="dashed"))
+par(fig=gridFIG())
+par(new=TRUE)
+plot(1:10)
+grid.text("Title added with grid", y=0.8)
+par(opar)
+popViewport()
+## upViewport(0) 
+
+pushViewport(viewport(x=0.75, y=0.75, width = 0.5, height = 0.5))
+grid.rect(gp=gpar(col="grey", lwd=5))
+par(plt=gridPLT())
+par(new=TRUE)
+plot(1:10)
+par(opar)
+popViewport()
+
+pushViewport(viewport(x=0.25, y=0.25, width = 0.5, height = 0.5))
+grid.rect(gp=gpar(col="grey", lty="dashed"))
+par(omi=gridOMI())
+par(mfrow=c(2, 2), mfg=c(1, 1), mar=c(3, 3, 1, 0))
+for (i in 1:4) {
+  plot(i)
+}
+par(opar)
+popViewport()
+
+vp1 <- viewport(x=0.75, y=0.25, width = 0.5, height = 0.5)
+library(ggplot2)
+a <- qplot(date, unemploy, data = economics,
+            geom = "line")
+print(a, vp = vp1)
+
+```
+
+
+## More stuff
+
+```{r}
+## next from https://github.com/tidyverse/ggplot2/wiki/Mixing-ggplot2-graphs-with-other-graphical-output
+library(ggplot2)
+library(RGraphics) # support of the "R graphics" book, on CRAN
+## install.packages("RGraphics")
+library(gridExtra) 
+g1 <- tableGrob(head(iris))
+string <- "
+This famous (Fisher's or Anderson's) iris data set gives the
+measurements in centimeters of the variables sepal length and width
+and petal length and width, respectively, for 50 flowers from each of
+3 species of iris. The species are Iris setosa, versicolor, and
+virginica.
+"
+g2 <- splitTextGrob(string)
+#"Sepal.Length" "Sepal.Width"  "Petal.Length" "Petal.Width"  "Species"
+g3 <- qplot(Sepal.Length,  Petal.Length, data=iris, colour=Species)
+grid.arrange(g1, g2, g3, ncol=1, top="The iris data")
+```
+

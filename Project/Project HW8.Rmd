@@ -1,0 +1,281 @@
+---
+title: "Homework 8"
+author: "Chien-Cheng Lai, Ning Hsu, Olivia Sun, Jiabei Li"
+date: "4/3/2018"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+goometry: margin=lin
+fontsize: 10pt
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+####Introduction
+
+Last time, our team concluded that the largest group of traffic collisions are Hispanic/ Latino males between age 25 to 60. We would like to further our research by using two other auxiliary data and analyze which race is most likely to be traffic collision victim, and other factors that can also increase traffic collisions in Los Angeles. 
+
+####Question 
+
+What is the correlation between sex, age, and race to the total number of collisions occurred in Los Angeles from year 2010 to present? To be more specific, which race is most likely to be the victim and least likely to be the victim? In addition, are there any other factors that can increase collisions, such as personal income and unemployment rate? 
+
+
+```{r, include=FALSE}
+library("RSQLite")
+library(DBI)
+library(stringr)
+library(reshape2)
+library(lubridate) 
+library(magrittr)
+library(ggplot2)
+library(grid)
+library(gridBase)
+library(gridExtra)
+library(dplyr)
+library(ggmap)
+
+TCS <- read.csv(file="/Users/aaron/Desktop/R/Project/TrafficCollision.csv", header=TRUE, sep=",")
+```
+
+```{r, echo=FALSE, results='hide'}
+con <- dbConnect(RSQLite::SQLite(), "/Users/aaron/Desktop/R/Project/Project.db")
+
+a <- 
+data.frame(
+year=seq(from = 2010, to = 2017),
+num=c(
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2010'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2011'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2012'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2013'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2014'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2015'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2016'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2017'"))),
+num1=c(
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2010'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2011'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2012'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2013'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2014'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2015'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2016'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2017'"))),
+income = c(dbGetQuery(con, 'SELECT PersonalIncomeperCapita income FROM economics where FiscalYear >= 2010 and FiscalYear !=""')),
+rate = c(dbGetQuery(con, 'SELECT UnemploymentRate rate from economics where FiscalYear >= 2010 and FiscalYear !=""'))
+)
+
+ggplot(a,aes(x = year))+
+geom_line(aes(y = num, colour = "Number of Victims"))+
+geom_line(aes(y = income, colour = "Personal Income"))+
+scale_y_continuous(sec.axis = sec_axis(~.+10, name = "Personal Income Per Capita (USD)"))+
+theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.title = element_text(size = 10),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6)
+)+
+labs(
+  x = "Year",
+  y = "Number of Victims",
+  shape = "Transmission"
+)+
+scale_colour_manual(
+  values = c("darkblue", "orange"),
+  name = "Legend")+
+ggtitle("Correlation between Victims and Income")
+```
+
+In order to get more depth and learn what other factors increase the number of collisions throughout the years, our team found supporting datasets on personal income per capita of Los Angeles from year 2010 to 2017. As the number of collisions increases, the amount of personal income per capita also increases. The positive correlation is very strong between 2013 and 2016. Even though number of collisions decreases during 2012 as personal income increases, the number of collisions immediately increases drastically after 2013 as personal income increases drastically too.
+ 
+Therefore, the graph depicts a positive correlation between both factors. We can conclude that more people are able to afford cars as personal income increases, which results in more traffic on the road and causes an increase in number of collisions. 
+
+
+```{r,echo=FALSE, results='hide'}
+ggplot(a,aes(x = year))+
+geom_line(aes(y = num1, colour = "Number of Victims"))+
+geom_line(aes(y = rate*500000, colour = "Unemployment Rate"))+
+scale_y_continuous(sec.axis = sec_axis(~./500000, name = "Unemployment Rate [%]"))+
+theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.title = element_text(size = 10),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6)
+)+
+labs(
+  x = "Year",
+  y = "Number of Victims(Age<=60)",
+  shape = "Transmission"
+)+
+scale_colour_manual(
+  values = c("darkblue", "orange"),
+  name = "Legend")+
+ggtitle("Correlation between Victims and Unemployment Rate")
+```
+
+Originally, we graphed the "Number of Collisions for Different Age Groups" using hours as the x-axis. Now, we would like to use years as x-axis to graph number of collisions for age group below age of 25 and age group between 25 and 60, because number of collisions are the same as number of victims. 
+
+Our team compared unemployment rate with number of collisions from 2010 to 2017. The graph depicts a strong negative correlation between number of collisions and unemployment rate. As the percentage of unemployment rate decreases, the number of collisions increases. This conclusion verifies with our team’s hypothesis previously, because the higher the employment rate, the higher the number of collisions. High employment rate results in more people commuting to work, causing more collisions. 
+
+
+```{r,echo=FALSE, results='hide', warning=FALSE}
+popu<-data.frame(dbGetQuery(con, "select Fact,LosAngelesCountyCalifornia from Population where LosAngelesCountyCalifornia != '71.0%' and FactNote = '(a)' or FactNote = '(b)' or Fact = 'Population estimates, July 1, 2016,  (V2016)' or LosAngelesCountyCalifornia = '26.5%'"));
+pu<-sapply(popu[,2], function(x) 
+as.numeric(gsub("\\,", "",popu[1,2]))*
+as.numeric(gsub("\\%", "", x))/100)
+pu2<-melt(pu)
+pu2[is.na(pu2)]<-as.numeric(gsub("\\,", "",popu[1,2]))
+number_race2<-data.frame('Fact'=popu[,1],'Los Angeles County, California'=pu2$value)
+
+No_Black<-as.numeric(dbGetQuery(con,"select count(VictimDescent) as No_Black from TrafficCollision TC
+where VictimDescent = 'B'"))
+
+No_American_Indian <-as.numeric(dbGetQuery(con,"select count(VictimDescent) as NO_American_Indian from TrafficCollision TC
+where VictimDescent = 'I'"))
+
+No_Asian<-as.numeric(dbGetQuery(con,"select count(VictimDescent) as No_Asian from TrafficCollision TC where VictimDescent = 'C' or VictimDescent = 'D' or VictimDescent = 'F' 
+or VictimDescent = 'J' or VictimDescent = 'K' or VictimDescent = 'L'"))
+                     
+
+No_Hawaiian<-as.numeric(dbGetQuery(con,"select count(VictimDescent) as No_Hawaiian from TrafficCollision TC where VictimDescent = 'U' or VictimDescent = 'P' or VictimDescent = 'G' 
+or VictimDescent = 'S'"))
+
+No_Hispanic_Latino<-as.numeric(dbGetQuery(con,"select count(VictimDescent) as No_Hispanic_Latino from TrafficCollision TC
+where VictimDescent = 'H'"))
+
+No_white<-as.numeric(dbGetQuery(con,"select count(VictimDescent)as NO_White from TrafficCollision TC
+where VictimDescent = 'W'"))
+
+
+Collision <- data.frame( race = c("Black or African", "American Indian", "Asian","Hawaiian","Hispanic or Latino", "White"), Number_of_collision = c(No_Black, No_American_Indian,No_Asian,No_Hawaiian,No_Hispanic_Latino,No_white), Number_of_people = c(pu2[2:7,1]))
+
+racepc <- ggplot(within(Collision,{percentage <- Number_of_collision/Number_of_people*100})) +
+  aes(x=reorder(race,-percentage), y=percentage,fill=race) +
+  geom_col()+
+  xlab("Race")+
+  ylab("Percentage of Victims [%]")+
+  ggtitle("Percentage of Victims for Races")+
+  theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6))
+
+race <- TCS %>%
+  filter(Victim.Descent!="" & Victim.Descent!="-") %>%
+  group_by(Victim.Descent) %>%
+  summarise(n = n()) %>%
+  ggplot() +
+  aes(x=reorder(Victim.Descent,-n), y = n, fill="n") +
+  geom_bar(stat = "identity")+
+  xlab("Victim Descent")+
+  ylab("Number of Victims")+
+  ggtitle("Bar Graph for Victim Descent")+
+  theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.position="none")
+
+racetable <- data_frame(abbr = c('H','W','O','B','X','A','K','F','C','U','J','P','V','I','Z','G','S','D','L'),
+           decent = c('Hispanic/Latin/Mexican', 'White', 'Other', 'Black', 'Unknown', 'Other Asian', 'Korean', 'Filipino', 'Chinese', 'Hawaiian', 'Japanese', 'Pacific Islander','Vietnamese', 'American Indian/Alaskan/ Native', 'Asian Indian', 'Guamanian', 'Samoan', 'Cambodian', 'Laotian'))
+
+vp1 <- viewport(x = 0, y = 1, width = 1, height = 0.5,
+               just = c("left", "top"))
+#grid.show.viewport(vp1)
+vp2 <- viewport(x = 0, y = 0.5, width = 1, height = 0.5,
+               just = c("left", "top"))
+#grid.show.viewport(vp2)
+
+grid.newpage()
+print(race, vp = vp1)
+print(racepc, vp = vp2)
+```
+
+Previously, our team used bar graph to display total number of collisions by type of victim descent. We concluded that victim descent of Hispanic/ Latin/ Mexican has the highest number of collisions compare with other races. However, this conclusion can be misleading because higher number of collisions doesn’t relate to higher likelihood of collision. The high number of collisions from Hispanic descent can be caused from high population of Hispanic descent in Los Angeles.
+ 
+In order to improve the graph, our team found the demographics of Los Angeles for each race and used it to standardize the number of collisions. Our team divided the number of victims of each race by the total population of each race and found the percentage of victims by racial composition. Therefore, this refined bar graph depicts which race is more likely to get into a collision. 
+
+From this refined bar graph, we can clearly see that people of Black or African American are most likely to be victims from traffic collisions. People of White are second most likely to be victims from traffic collisions. People of American Indian and Alaska Natives are least likely to be victims from traffic collisions. People of Asian are second least likely to be victims 
+
+(Note: In order to clearly display all the races, our team decided to group all the victim descents into six major races: Black or African American, American Indian and Alaska Native, Asian, Native Hawaiian and other Pacific Islander, Hispanic and Latino, and White.)
+
+```{r,echo=FALSE,results='hide', warning=FALSE, message=FALSE}
+location <- unlist(geocode('7600 S Broadway,Los Angeles,CA 90003'))+c(0,.02)
+
+Loc<-as.character(TCS$Location)
+
+Loc_Long<-gsub("\\(.*\\,","",Loc)
+Loc_Long<-gsub("[)]","",Loc_Long)
+Longitude<-as.numeric(Loc_Long)
+
+Loc_Lat<-gsub("\\,.*\\)","",Loc)
+Loc_Lat<-gsub("[(]","",Loc_Lat)
+Latitude<-as.numeric(Loc_Lat)
+
+b <-cbind.data.frame('Longitude_'=Longitude,'Latitude_'=Latitude,
+                      "Victim_Sex"=TCS$Victim.Sex)
+b_<-filter(b,Victim_Sex!="",Victim_Sex!="H",Victim_Sex!="X")
+
+
+map<-get_map(location = location, zoom = 12, scale = "auto", maptype = "terrain", source = "google", color = "bw")
+
+map2 <- get_map(location = location, zoom = 14, scale = "auto", maptype = "terrain", source = "google", color = "bw")
+contours<- stat_density2d(aes(x = Longitude_, y = Latitude_,
+                    alpha=..level..,fill = ..level..),
+                    data = b_,
+                    geom = "polygon",
+                    n=100)
+
+Zoomout<-ggmap(map)+
+ contours+
+scale_fill_gradient(low = "black", high = "red")+
+labs(fill='Traffic\nCollision\nDensity') +
+theme(axis.ticks   = element_blank(),
+       axis.text.x  = element_blank(),
+       axis.text.y  = element_blank(),
+       axis.title.x = element_blank(),
+       axis.title.y = element_blank(),
+       plot.title   = element_text(size = 13, hjust = 0.5, face = "bold"),
+       plot.margin     = unit(c(0,0,0,0),units="mm"),
+       panel.spacing.x = unit(0,units="mm"))+
+scale_alpha(guide = "none")
+
+Zoomin<-ggmap(map2)+
+ contours+
+scale_fill_gradient(low = "black", high = "red")+
+labs(fill='Traffic\nCollision\nDensity') +
+labs(title = "Density Plot of Traffic Collision in the City of LA")+
+xlab("Longitude")+
+ylab("Latitude")+
+theme(axis.ticks   = element_blank(),
+       axis.text.x  = element_blank(),
+       axis.text.y  = element_blank(),
+       axis.title.x = element_text(size = 11, face = "bold"),
+       axis.title.y = element_text(size = 11, face = "bold"),
+       plot.title   = element_text(size = 13, hjust = 0.5, face = "bold"),
+       plot.margin     = unit(c(0,0,0,0),units="mm"),
+       panel.spacing.x = unit(0,units="mm"),
+       legend.title  = element_text(size=8,face = "bold"))+
+scale_alpha(guide = "none")
+
+
+e1<- viewport(width = 0.4, height = 0.4, x=0.92, y = 0.1)
+
+#grid.newpage()
+print(Zoomin)
+print(Zoomout, v=e1)
+
+```
+
+The main graph is a zoomed in density plot, and the small plot on the right corner is an overall view of the density plot. From the map density plot, we can see that traffic collisions happen near the downtown area and on highways. Specifically, the highest density is on HWY 110. All the density spots locate on this highway, meaning that most victims.
+
+####Conclusion
+
+Our team concluded that people of Black and African American descent are most likely to be victims from traffic collisions. Sex, descent, and age are not only the main factors that cause collisions, because personal income per capita and unemployment rate are also strongly correlated with collisions. More personal income and employment rate increase the number of collisions. 

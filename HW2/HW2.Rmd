@@ -1,0 +1,131 @@
+---
+title: "HW2"
+author: "Aaron"
+date: "1/26/2018"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###Exercise1
+```{r}
+## Load the library
+library(ggplot2)
+## Activate the mpg data.frame provided by ggplot2
+data(mpg)
+## New versions of ggplot provide a tibble and have all character variables, while ## older were data frames and had factors. Transform manufacturer to factor
+## to show how most data.frames treat character variables.
+mpg <- as.data.frame(mpg)
+mpg$manufacturer <- factor(mpg$manufacturer)
+```
+
+####1. Inspect the structure of mpg data.frame. Note the kind of data provided.
+```{r}
+str(mpg)
+```
+
+####2. Run the summary function to learn more about the variables.
+```{r}
+summary(mpg)
+```
+####3. Get a subset of the data.frame including all cars that are not ford nor audi.
+```{r}
+mpgsub <- subset.data.frame(mpg, manufacturer != "ford" & manufacturer != "audi")
+```
+
+####4. Determine if the manufacturer variable (that is a factor) in your subset has or not dropped the now removed manufacurers audi and ford.
+```{r}
+c("audi", "ford") %in% mpgsub$manufacturer
+```
+
+####5. Devise a strategy to assure that the above factor has dropped the levels that have no elements
+```{r}
+mpgsub$manufacturer <- droplevels(mpgsub$manufacturer)
+levels(mpgsub$manufacturer)
+```
+
+####6. Further subset the data making sure that only front drive midsize cars model 2008 with at least 20 highway or city miles per gallon are included.
+```{r}
+mpgsub2 <- subset.data.frame(mpgsub, drv == "f" & class == "midsize" & year == 2008 & (hwy >= 20 | cty >= 20))
+mpgsub2$manufacturer <- droplevels(mpgsub2$manufacturer)
+mpgsub2
+```
+
+####7. Determine how many cars per manufacturer satisfy these constraints. Only show manufacturers with at least one vehicle.
+```{r}
+table(mpgsub2$manufacturer)
+```
+
+####8. Only show the manufacturer(s) with more cars (Note: your solution should also contemplate the possibility of a tie for the first place.)
+```{r}
+total <- table(mpg$manufacturer)
+row.names(total)[which(total == max(total))]
+```
+
+###Exercise2
+```{r}
+set.seed(123)
+r <- rnorm(1000)
+
+plot(qnorm((1:(length(r)-1))/(length(r)-1)), sort(r[-which.max(r)]),main = "Q-Q Plot", xlab = "Normal Theoretical Quantile", ylab = "Sorted Data")
+abline(a = 0, b = 1)
+```
+
+###Exercise3
+```{r}
+set.seed(123)
+r <- rgamma(1000, shape = 1)
+
+plot(qgamma((1:(length(r)-1))/(length(r)-1), shape = 1), sort(r[-which.max(r)]),main = "Q-Q Plot", xlab = "Normal Theoretical Quantile", ylab = "Sorted Data")
+abline(a = 0, b = 1)
+```
+
+###Exercise4
+```{r}
+stem(faithful$eruptions)
+
+hist(faithful$eruptions)
+rug(faithful$eruptions)
+
+boxplot(faithful$eruptions)
+
+shapiro.test(faithful$eruptions)
+ks.test(faithful$eruptions, pnorm)
+```
+Both p-values are much smaller than 0.5 so eruption is not normally distribution.
+
+###Exercise5
+
+```{r}
+library(UsingR)
+data(father.son)
+
+lmfs <- lm(sheight ~ fheight, data = father.son)
+slmfs <- summary(lmfs)
+anlmfs <- anova(lmfs)
+```
+
+####1. Extract the coefficients of the regression line from lmfs, and add the regression line (in red) to the scatterplot. Hint: use function abline (see help)
+```{r}
+coefficients(lmfs)
+plot(father.son$fheight, father.son$sheight)
+abline(reg = lmfs,col = "red")
+```
+####2. Plot the father heights on x and the residuals in y. Add a horizontal line at 0.
+
+```{r}
+plot(father.son$fheight, lmfs$residuals, xlab = "fheight", ylab = "residuals")
+abline(0,0, col = "red")
+```
+
+####3. Extract the fstatistic from slmfs and perform the calculation to obtain the p-value of the anova of the regression (i.e., the line that says: F-statistic: 361.2 on 1 and 1076 DF, p-value: < 2.2e-16. (Hint: use the function pf that gives you the cumulative probability of an F distribution).
+```{r}
+pf(slmfs$fstatistic["value"],slmfs$fstatistic["numdf"],slmfs$fstatistic["dendf"],lower.tail = F)
+```
+
+####4. Extract the p-value directly from anlmfs.
+```{r}
+anlmfs$Pr
+```

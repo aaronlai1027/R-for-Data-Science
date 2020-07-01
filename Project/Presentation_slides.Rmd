@@ -1,0 +1,606 @@
+---
+title: "Traffic Collisions in Los Angeles 2010-Present"
+author: "Mengdi Sun, Chien-Cheng Lai, Ning Hsu, Jiabei Li"
+date: "4/17/2018"
+output:
+  beamer_presentation: default
+  ioslides_presentation:
+    smaller: yes
+  slidy_presentation: default
+---
+
+## Agenda 
+* Objective of our project
+* Correlations between year, time, sex, age, and race
+* Explore other factors such as personal income and unemployment rate
+
+##Data and Questions
+* Data set from Los Angeles Police Department
+* 406,000 rows and 18 columns
+* 2 more supplementary datasets on population of LA and information on personal income and unemployment
+* What is the correlation between sex, age, and race to the total number of traffic victims in Los Angeles from 2010 to present?
+* Which race is most likely to be the victim of traffic collision?
+* Are personal income and unemployment rate crucial factors for victim increase?
+
+##
+```{r, include=FALSE}
+library(plyr)
+library(dplyr)
+library(magrittr)
+library(reshape2)
+library(ggplot2)
+library(lubridate)
+library("RSQLite")
+library(DBI)
+library(stringr)
+library(magrittr)
+library(grid)
+library(gridBase)
+library(gridExtra)
+library(ggmap)
+library(gtable)
+library(showtext)
+library(sysfonts)
+
+a <- read.csv(file="/Users/aaron/Desktop/R/Project/TrafficCollision.csv", header=TRUE, sep=",")
+```
+
+
+
+```{r, echo=FALSE, results='hide'}
+
+Male <<- subset(count(a, Victim.Sex, Date.Occurred), Victim.Sex == "M")
+Female <<- subset(count(a, Victim.Sex, Date.Occurred), Victim.Sex == "F")
+num <- inner_join(Male, Female, by = "Date.Occurred")
+
+d <- data_frame(date = as.Date(num$Date.Occurred, format = "%m/%d/%Y"),
+                Number.of.Male = num$n.x,
+                Number.of.Femlae = num$n.y)
+
+dmelt <- subset(melt(d, id.vars = "date", variable.name = "type"), date != "2018-03-17" & date != "2018-03-16")
+
+ggplot(dmelt)+
+aes(date, value, colour = type)+
+geom_line()+
+theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.title = element_text(size = 8),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6)
+)+
+labs(
+  x = "Date",
+  y = "Number of Victims Per Day",
+  shape = "Transmission"
+)+
+scale_colour_manual(
+  values = c("darkblue", "pink"),
+  name = "Gender",
+  labels = c("Male", "Female")
+)+
+ggtitle("Time Series Plot of Traffic Collision Incidents from 2010 to Present")
+
+
+```
+
+* Trend for victims from 2010 to 2015 is consistent and stable 
+* Slight increase of victims in 2016
+* Both male and female have similar trend of increase
+
+
+##
+```{r, echo=FALSE, results='hide'}
+TCS1<- filter(a, Victim.Sex !="" , Victim.Sex != "H", Victim.Sex !="X" )
+h<-hour(as.POSIXct(sprintf("%04.0f", TCS1$Time.Occurred), format="%H%M"))
+##Bar graph
+ggplot(TCS1, aes(h, fill = Victim.Sex))+ 
+  geom_bar()+
+  xlab("Hour")+
+  ylab("Number of Victims")+
+  ggtitle("Distribution of Victims from 2010 to Present")+
+  theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.title = element_text(size = 8),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6))+
+  scale_fill_manual( 
+  values = c("pink", "darkblue"),
+  name = "Gender",
+  labels = c("Female", "Male")
+)
+least <- count(filter(TCS1, h == 5))
+highest <- count(filter(TCS1, h == 17))
+```
+
+* Least victims in early morning from 4AM to  5AM (4,716)
+* Most victims in late afternoon at 5PM (27,117)
+* Most traffic collisions happen around after work and school 
+
+##
+```{r,echo=FALSE, results='hide', warning=FALSE}
+con <- dbConnect(RSQLite::SQLite(), "/Users/aaron/Desktop/R/Project/Project.db")
+popu<-data.frame(dbGetQuery(con, "select Fact,LosAngelesCountyCalifornia from Population where LosAngelesCountyCalifornia != '71.0%' and FactNote = '(a)' or FactNote = '(b)' or Fact = 'Population estimates, July 1, 2016,  (V2016)' or LosAngelesCountyCalifornia = '26.5%'"));
+pu<-sapply(popu[,2], function(x) 
+as.numeric(gsub("\\,", "",popu[1,2]))*
+as.numeric(gsub("\\%", "", x))/100)
+pu2<-melt(pu)
+pu2[is.na(pu2)]<-as.numeric(gsub("\\,", "",popu[1,2]))
+number_race2<-data.frame('Fact'=popu[,1],'Los Angeles County, California'=pu2$value)
+
+No_Black<-as.numeric(dbGetQuery(con,"select count(VictimDescent) as No_Black from TrafficCollision TC
+where VictimDescent = 'B'"))
+
+No_American_Indian <-as.numeric(dbGetQuery(con,"select count(VictimDescent) as NO_American_Indian from TrafficCollision TC
+where VictimDescent = 'I'"))
+
+No_Asian<-as.numeric(dbGetQuery(con,"select count(VictimDescent) as No_Asian from TrafficCollision TC where VictimDescent = 'C' or VictimDescent = 'D' or VictimDescent = 'F' 
+or VictimDescent = 'J' or VictimDescent = 'K' or VictimDescent = 'L'"))
+                     
+
+No_Hawaiian<-as.numeric(dbGetQuery(con,"select count(VictimDescent) as No_Hawaiian from TrafficCollision TC where VictimDescent = 'U' or VictimDescent = 'P' or VictimDescent = 'G' 
+or VictimDescent = 'S'"))
+
+No_Hispanic_Latino<-as.numeric(dbGetQuery(con,"select count(VictimDescent) as No_Hispanic_Latino from TrafficCollision TC
+where VictimDescent = 'H'"))
+
+No_white<-as.numeric(dbGetQuery(con,"select count(VictimDescent)as NO_White from TrafficCollision TC
+where VictimDescent = 'W'"))
+
+
+Collision <- data.frame( race = c("Black or African", "American Indian", "Asian","Hawaiian","Hispanic or Latino", "White"), Number_of_collision = c(No_Black, No_American_Indian,No_Asian,No_Hawaiian,No_Hispanic_Latino,No_white), Number_of_people = c(pu2[2:7,1]))
+
+racepc <- ggplot(within(Collision,{percentage <- Number_of_collision/Number_of_people*100})) +
+  aes(x=reorder(race,-percentage), y=percentage,fill=race) +
+  geom_col()+
+  xlab("Race")+
+  ylab("Percentage of Victims [%]")+
+  ggtitle("Percentage of Victims for Races")+
+  theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6))
+
+race <- a %>%
+  filter(Victim.Descent!="" & Victim.Descent!="-") %>%
+  group_by(Victim.Descent) %>%
+  summarise(n = n()) %>%
+  ggplot() +
+  aes(x=reorder(Victim.Descent,-n), y = n, fill="n") +
+  geom_bar(stat = "identity")+
+  xlab("Victim Descent")+
+  ylab("Number of Victims")+
+  ggtitle("Bar Graph for Victim Descent")+
+  theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.position="none")
+
+racetable <- data_frame(abbr = c('H','W','O','B','X','A','K','F','C','U','J','P','V','I','Z','G','S','D','L'),
+           decent = c('Hispanic/Latin/Mexican', 'White', 'Other', 'Black', 'Unknown', 'Other Asian', 'Korean', 'Filipino', 'Chinese', 'Hawaiian', 'Japanese', 'Pacific Islander','Vietnamese', 'American Indian/Alaskan/ Native', 'Asian Indian', 'Guamanian', 'Samoan', 'Cambodian', 'Laotian'))
+
+vp1 <- viewport(x = 0, y = 1, width = 1, height = 0.5,
+               just = c("left", "top"))
+#grid.show.viewport(vp1)
+vp2 <- viewport(x = 0, y = 0.5, width = 1, height = 0.5,
+               just = c("left", "top"))
+#grid.show.viewport(vp2)
+
+grid.newpage()
+print(race, vp = vp1)
+print(racepc, vp = vp2)
+```
+
+
+Note
+
+H- Hispanic, W- White, O- Other, B- Black,
+X- Unknown, A- Other Asian, K- Korean,
+F- Filipino, C- Chinese, U- Hawaiian
+
+
+##Percentage of Victims by Race {.flexbox .vcenter} 
+```{r, echo=FALSE}
+library('knitr')
+t1 <- within(Collision,{percentage <- Number_of_collision/Number_of_people*100})
+kable(head(t1[,c(1,4)]), format="markdown")
+```
+
+
+##
+```{r, echo=FALSE, results='hide'}
+youth<-within(filter(a, a$Victim.Age <= 25),{Time<- floor(Time.Occurred/100)})
+youth1<-count(youth, Time)
+
+strong<-within(filter(a, Victim.Age > 25 & Victim.Age < 60),{Time<- floor(Time.Occurred/100)})
+strong1<-count(strong, Time)
+
+old <-within(filter(a, Victim.Age >= 60),{Time<- floor(Time.Occurred/100)})
+old1<-count(old, Time)
+
+AGEH<-data.frame(Time = youth1$Time,
+                 Youth.Number = youth1$n,
+                 Strong.Number = strong1$n,
+                 Old.Nimber = old1$n)
+MAGEH <- melt (AGEH, id.vars = "Time", variable.name = "Age")
+ggplot(MAGEH) +
+aes(Time, value, colour = Age) +  
+geom_line()+
+  xlab("Hour")+
+  ylab("Number of Victims")+
+  ggtitle("Number of Victims for Different Age Groups")+
+  theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.title = element_text(size = 8),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6))+
+scale_colour_manual(values = c("darkblue","red","darkgreen"), labels = c("below 25", "between 25 to 60", "above 60"))
+
+```
+
+* Most victims are between 25 to 60 years old 
+* Least victims are above 60 years old
+* Victims increase from 4AM to 6AM due to more people commute to work
+* Number of victims decrease after 7PM
+
+##
+```{r, echo=FALSE, results='hide'}
+
+a1 <- 
+data.frame(
+year=seq(from = 2010, to = 2017),
+num=c(
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2010'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2011'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2012'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2013'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2014'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2015'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2016'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where DateOccurred like '%2017'"))),
+num1=c(
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2010'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2011'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2012'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2013'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2014'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2015'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2016'")),
+as.numeric(dbGetQuery(con, "select count(DateOccurred) from TrafficCollision where VictimAge <= 60 and DateOccurred like '%2017'"))),
+income = c(dbGetQuery(con, 'SELECT PersonalIncomeperCapita income FROM economics where FiscalYear >= 2010 and FiscalYear !=""')),
+rate = c(dbGetQuery(con, 'SELECT UnemploymentRate rate from economics where FiscalYear >= 2010 and FiscalYear !=""'))
+)
+
+ggplot(a1,aes(x = year))+
+geom_line(aes(y = num, colour = "Number of Victims"))+
+geom_line(aes(y = income, colour = "Personal Income"))+
+scale_y_continuous(sec.axis = sec_axis(~.+10, name = "Personal Income Per Capita (USD)"))+
+theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.title = element_text(size = 10),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6)
+)+
+labs(
+  x = "Year",
+  y = "Number of Victims",
+  shape = "Transmission"
+)+
+scale_colour_manual(
+  values = c("darkblue", "orange"),
+  name = "Legend")+
+ggtitle("Correlation between Victims and Income")
+```
+
+* Personal income per capita increases as number of victims increases 
+* Strong positive correlation between 2013 and 2016
+* Conclude more personal income cause more traffic and more collisions
+
+##
+```{r,echo=FALSE, results='hide'}
+ggplot(a1,aes(x = year))+
+geom_line(aes(y = num1, colour = "Number of Victims"))+
+geom_line(aes(y = rate*500000, colour = "Unemployment Rate"))+
+scale_y_continuous(sec.axis = sec_axis(~./500000, name = "Unemployment Rate [%]"))+
+theme(
+  plot.title = element_text(size = 13, hjust = 0.5, face = "bold"),
+  axis.title = element_text(size = 12, face = "bold"),
+  strip.text.x = element_text(size = 12, face = "bold"),
+  legend.title = element_text(size = 10),
+  legend.key.size = unit(0.5, "cm"),
+  legend.text = element_text(size = 6)
+)+
+labs(
+  x = "Year",
+  y = "Number of Victims(Age<=60)",
+  shape = "Transmission"
+)+
+scale_colour_manual(
+  values = c("darkblue", "orange"),
+  name = "Legend")+
+ggtitle("Correlation between Victims and Unemployment Rate")
+```
+
+* Strong negative correlation 
+* As unemployment rate decreases, the number of victims increases
+* Low unemployment means more people commuting to work, cause more collisions
+
+
+##
+```{r,echo=FALSE,results='hide', warning=FALSE, message=FALSE}
+location <- unlist(geocode('7600 S Broadway,Los Angeles,CA 90003'))+c(0,.02)
+
+Loc<-as.character(a$Location)
+
+Loc_Long<-gsub("\\(.*\\,","",Loc)
+Loc_Long<-gsub("[)]","",Loc_Long)
+Longitude<-as.numeric(Loc_Long)
+
+Loc_Lat<-gsub("\\,.*\\)","",Loc)
+Loc_Lat<-gsub("[(]","",Loc_Lat)
+Latitude<-as.numeric(Loc_Lat)
+
+b <-cbind.data.frame('Longitude_'=Longitude,'Latitude_'=Latitude,
+                      "Victim_Sex"=a$Victim.Sex)
+b_<-filter(b,Victim_Sex!="",Victim_Sex!="H",Victim_Sex!="X")
+
+
+map<-get_map(location = location, zoom = 12, scale = "auto", maptype = "terrain", source = "google", color = "bw")
+
+location[1]
+
+map2 <- get_map(location = c(location[1],location[2]+0.05) , zoom = 14, scale = "auto", maptype = "terrain", source = "google", color = "bw")
+
+contours<- stat_density2d(aes(x = Longitude_, y = Latitude_,
+                    alpha=..level..,fill = ..level..),
+                    data = b_,
+                    geom = "polygon",
+                    n=100)
+
+Zoomout<-ggmap(map)+
+ contours+
+scale_fill_gradient2(low = "white", mid = "orange", high = "red")+
+labs(fill='Traffic\nCollision\nDensity') +
+labs(title = "Density Plot of Traffic Collision in the City of LA")+
+xlab("Longitude")+
+ylab("Latitude")+
+theme(axis.ticks   = element_blank(),
+       axis.text.x  = element_blank(),
+       axis.text.y  = element_blank(),
+       axis.title.x = element_text(size = 11, face = "bold"),
+       axis.title.y = element_text(size = 11, face = "bold"),
+       plot.title   = element_text(size = 13, hjust = 0.5, face = "bold"),
+       plot.margin     = unit(c(0,0,0,0),units="mm"),
+       panel.spacing.x = unit(0,units="mm"),
+       legend.title  = element_text(size=8,face = "bold"))+
+scale_alpha(guide = "none")
+
+
+Zoomin<-ggmap(map2)+
+ contours+
+scale_fill_gradient2(low = "white", mid = "orange", high = "red")+
+labs(fill='Traffic\nCollision\nDensity') +
+theme(axis.ticks   = element_blank(),
+       axis.text.x  = element_blank(),
+       axis.text.y  = element_blank(),
+       axis.title.x = element_blank(),
+       axis.title.y = element_blank(),
+       plot.title   = element_text(size = 14, hjust = 0.5, face = "bold"),
+       plot.margin     = unit(c(0,0,0,0),units="mm"),
+       panel.spacing.x = unit(0,units="mm"))+
+scale_alpha(guide = "none")
+
+
+e1<- viewport(width = 0.4, height = 0.4, x=0.92, y = 0.1)
+
+#grid.newpage()
+print(Zoomout)
+print(Zoomin, v=e1)
+
+```
+
+* Main graph is an overview density plot, small one is a zoomed in density plot
+* Main traffic collisions happen in downtown LA and HWY 110
+
+##Summary Graph
+```{r,fonts,fig.showtext=TRUE,echo=FALSE,results='hide', warning=FALSE, message=FALSE}
+
+library("RSQLite")
+library(DBI)
+library(gridExtra)
+library(gtable)
+library(grid)
+library(gridBase)
+library(showtext)
+library(sysfonts)
+
+link = "http://img.dafont.com/dl/?f=restroom";
+download.file(link, "restroom.zip", mode = "wb");
+unzip("restroom.zip")
+
+dcon <- dbConnect(RSQLite::SQLite(), "/Users/aaron/Desktop/R/Project/Project.db")
+
+font_add("restroom", "restroom.ttf")
+
+No_Black_F<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC
+where VictimDescent = 'B' and VictimSex = 'F'"))
+No_Black_M<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC
+where VictimDescent = 'B' and VictimSex = 'M'"))
+No_Black_Y<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC
+where VictimDescent = 'B' and VictimAge < 25 "))
+No_Black_S<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC
+where VictimDescent = 'B' and VictimAge >= 25 and VictimAge <= 60"))
+No_Black_O<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC
+where VictimDescent = 'B' and VictimAge > 60 "))
+
+
+No_American_Indian_F <-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where VictimDescent = 'I' and VictimSex = 'F'"))
+No_American_Indian_M <-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where VictimDescent = 'I' and VictimSex = 'M'"))
+No_American_Indian_Y <-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where VictimDescent = 'I' and VictimAge < 25"))
+No_American_Indian_S <-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where VictimDescent = 'I' and VictimAge >= 25 and VictimAge <=60"))
+No_American_Indian_O <-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where VictimDescent = 'I' and VictimAge > 60"))
+
+
+
+No_Asian_F<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where (VictimDescent = 'C' or VictimDescent = 'D' or VictimDescent = 'F' 
+or VictimDescent = 'J' or VictimDescent = 'K' or VictimDescent = 'L') and VictimSex = 'F'"))
+No_Asian_M<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where (VictimDescent = 'C' or VictimDescent = 'D' or VictimDescent = 'F' 
+or VictimDescent = 'J' or VictimDescent = 'K' or VictimDescent = 'L') and VictimSex = 'M'"))
+No_Asian_Y<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where (VictimDescent = 'C' or VictimDescent = 'D' or VictimDescent = 'F' 
+or VictimDescent = 'J' or VictimDescent = 'K' or VictimDescent = 'L') and VictimAge < 25"))
+No_Asian_S<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where (VictimDescent = 'C' or VictimDescent = 'D' or VictimDescent = 'F' 
+or VictimDescent = 'J' or VictimDescent = 'K' or VictimDescent = 'L') and VictimAge >= 25 and VictimAge <=60"))
+No_Asian_O<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where (VictimDescent = 'C' or VictimDescent = 'D' or VictimDescent = 'F' 
+or VictimDescent = 'J' or VictimDescent = 'K' or VictimDescent = 'L') and VictimAge > 60"))
+                     
+
+No_Hawaiian_F<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where (VictimDescent = 'U' or VictimDescent = 'P' or VictimDescent = 'G' or VictimDescent = 'S') and VictimSex = 'F'"))
+No_Hawaiian_M<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where (VictimDescent = 'U' or VictimDescent = 'P' or VictimDescent = 'G' or VictimDescent = 'S') and VictimSex = 'M'"))
+No_Hawaiian_Y<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where (VictimDescent = 'U' or VictimDescent = 'P' or VictimDescent = 'G' or VictimDescent = 'S') and VictimAge < 25"))
+No_Hawaiian_S<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where (VictimDescent = 'U' or VictimDescent = 'P' or VictimDescent = 'G' or VictimDescent = 'S') and VictimAge >= 25 and VictimAge <= 60"))
+No_Hawaiian_O<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) from TrafficCollision TC where (VictimDescent = 'U' or VictimDescent = 'P' or VictimDescent = 'G' or VictimDescent = 'S') and VictimAge > 60"))
+
+
+No_Hispanic_Latino_F<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) as No_Hispanic_Latino from TrafficCollision where VictimDescent = 'H' and VictimSex = 'F'"))
+No_Hispanic_Latino_M<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) as No_Hispanic_Latino from TrafficCollision where VictimDescent = 'H' and VictimSex = 'M'"))
+No_Hispanic_Latino_Y<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) as No_Hispanic_Latino from TrafficCollision where VictimDescent = 'H' and VictimAge < 25"))
+No_Hispanic_Latino_S<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) as No_Hispanic_Latino from TrafficCollision where VictimDescent = 'H' and VictimAge >=25 and VictimAge <=60"))
+No_Hispanic_Latino_O<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent) as No_Hispanic_Latino from TrafficCollision where VictimDescent = 'H' and VictimAge >60"))
+
+No_white_F<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent)as NO_White from TrafficCollision TC
+where VictimDescent = 'W' and VictimSex = 'F'"))
+No_white_M<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent)as NO_White from TrafficCollision TC
+where VictimDescent = 'W' and VictimSex = 'M'"))
+No_white_Y<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent)as NO_White from TrafficCollision TC
+where VictimDescent = 'W' and VictimAge < 25 "))
+No_white_S<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent)as NO_White from TrafficCollision TC
+where VictimDescent = 'W' and VictimAge >= 25 and VictimAge <=60 "))
+No_white_O<-as.numeric(dbGetQuery(dcon,"select count(VictimDescent)as NO_White from TrafficCollision TC
+where VictimDescent = 'W' and VictimAge > 60"))
+
+
+SummeryT <- data.frame( "Descent" = c("Black or African", "American Indian", "Asian","Hawaiian","Hispanic or Latino", "White"), 
+Male = c(No_Black_M, No_American_Indian_M,No_Asian_M,No_Hawaiian_M,No_Hispanic_Latino_M,No_white_M),
+Female = c(No_Black_F, No_American_Indian_F,No_Asian_F,No_Hawaiian_F,No_Hispanic_Latino_F,No_white_F),
+Youth = c(No_Black_Y, No_American_Indian_Y,No_Asian_Y,No_Hawaiian_Y,No_Hispanic_Latino_Y,No_white_Y),
+Adult = c(No_Black_S, No_American_Indian_S,No_Asian_S,No_Hawaiian_S,No_Hispanic_Latino_S,No_white_S),
+Elder = c(No_Black_O, No_American_Indian_O,No_Asian_O,No_Hawaiian_O,No_Hispanic_Latino_O,No_white_O))
+
+SummeryT1 <- matrix(1:30,ncol=5)
+SummeryT1[,1] <- SummeryT[,2]/sum(SummeryT[,2])
+SummeryT1[,2] <- SummeryT[,3]/sum(SummeryT[,3])
+SummeryT1[,3] <- SummeryT[,4]/sum(SummeryT[,4])
+SummeryT1[,4] <- SummeryT[,5]/sum(SummeryT[,5])
+SummeryT1[,5] <- SummeryT[,6]/sum(SummeryT[,6])
+SummeryT1 <- SummeryT1[-c(2,4),]
+SummeryT <- SummeryT[-c(2,4),]
+
+barData <- SummeryT1
+
+#grid.newpage()
+nmeasures <- nrow(barData)
+nbars <- ncol(barData)
+barTotals <- rbind(rep(0, nbars),
+                   apply(barData, 2, cumsum))
+barYscale <- c(0, max(barTotals) * 1.05)
+
+
+
+vp7 <- viewport(x = 0, y = 0)
+
+p <- function(){
+  showtext_auto()
+  plot(1, type="n", axes=F, xlab="", ylab="")
+  text(0.63, 1.2, "  
+
+                L
+                M
+                /
+                A
+                T
+                 ", family="restroom", col="steelblue", cex=1.9)
+}
+
+print(p(),vp=vp6)
+vp1 = viewport(x = 0.55, y = 0.77, width = 0.05, height = 0.8, angle = 90)
+#grid.show.viewport(vp1)
+grid.rect(x = rep(0.5, nmeasures),
+          y = unit(barTotals[1:nmeasures,1], "native"),
+          height = unit(diff(barTotals[,1]), "native"),
+          width = 0.8, just = "bottom",
+          gp = gpar(fill = c("deepskyblue","violetred1","khaki1","yellowgreen")),
+          vp=vp1)
+vp2 = viewport(x = 0.55, y = 0.69, width = 0.05, height = 0.8, angle = 90)
+#grid.show.viewport(vp2)
+grid.rect(x = rep(0.5, nmeasures),
+          y = unit(barTotals[1:nmeasures,2], "native"),
+          height = unit(diff(barTotals[,2]), "native"),
+          width = 0.8, just = "bottom",
+          gp = gpar(fill = c("deepskyblue","violetred1","khaki1","yellowgreen")),
+          vp=vp2)
+vp3 = viewport(x = 0.55, y = 0.61, width = 0.05, height = 0.8, angle = 90)
+#grid.show.viewport(vp3)
+grid.rect(x = rep(0.5, nmeasures),
+          y = unit(barTotals[1:nmeasures,3], "native"),
+          height = unit(diff(barTotals[,3]), "native"),
+          width = 0.8, just = "bottom",
+          gp = gpar(fill = c("deepskyblue","violetred1","khaki1","yellowgreen")),
+          vp=vp3)
+vp4 = viewport(x = 0.55, y = 0.53, width = 0.05, height = 0.8, angle = 90)
+#grid.show.viewport(vp4)
+grid.rect(x = rep(0.5, nmeasures),
+          y = unit(barTotals[1:nmeasures,4], "native"),
+          height = unit(diff(barTotals[,4]), "native"),
+          width = 0.8, just = "bottom",
+          gp = gpar(fill = c("deepskyblue","violetred1","khaki1","yellowgreen")),
+          vp=vp4)
+vp5 = viewport(x = 0.55, y = 0.45, width = 0.05, height = 0.8, angle = 90)
+#grid.show.viewport(vp5)
+grid.rect(x = rep(0.5, nmeasures),
+          y = unit(barTotals[1:nmeasures,5], "native"),
+          height = unit(diff(barTotals[,5]), "native"),
+          width = 0.8, just = "bottom",
+          gp = gpar(fill = c("deepskyblue","violetred1","khaki1","yellowgreen")),
+          vp=vp5)
+
+vp6 = viewport(x = 0.53, y = 0.22)
+
+pushViewport(vp6)
+
+myt <- ttheme_default(
+  core = list(bg_params=list(fill=c("deepskyblue","violetred1","khaki1","yellowgreen")))
+)
+g <- tableGrob(SummeryT, rows = NULL, theme = myt)
+g <- gtable_add_grob(g,
+        grobs = rectGrob(gp = gpar(fill = NA, lwd = 2)),
+        t = 2, b = nrow(g), l = 1, r = ncol(g))
+g <- gtable_add_grob(g,
+        grobs = rectGrob(gp = gpar(fill = NA, lwd = 2)),
+        t = 1, l = 1, r = ncol(g))
+
+grid.draw(g)
+
+
+```
+
+
+
+## Conclusion
+* Main factors are sex, race, age, personal income per capita, and unemployment rate 
+* Sex, race, age, and personal income per capita are strongly positively correlated with number of victims
+* Unemploymnent rate is strongly negatively correlated with number of victims
+* More male victims than female victims
+* Victims are mostly likely in age group between 25 to 60
+* People of Black and African American descent are most likely to be victims from traffic collisions
+* After work time has the highest collision rate 
+
+
